@@ -52,6 +52,16 @@
       }
 
       window.fetch = function (input, init) {
+        const isRequest = input instanceof Request;
+        const method = String((init && init.method) || (isRequest && input.method) || "GET").toUpperCase();
+        let requestURL = "";
+        try {
+          requestURL = new URL(isRequest ? input.url : String(input), window.location.href).pathname;
+        } catch (_) {}
+        // The static CDN has no logging endpoint. Silently discard log POSTs.
+        if (method === "POST" && /(^|\\/)log$/.test(requestURL)) {
+          return Promise.resolve(new Response(null, { status: 204 }));
+        }
         const target = cdnTarget(input, init);
         if (!target) return nativeFetch(input, init);
 
@@ -70,15 +80,11 @@
     (function () {
       const logQueue = [];
       let flushTimer = null;
+      // This is a static CDN deployment: there is no same-origin /log
+      // endpoint. Keep diagnostics in the page, but do not POST them to
+      // the CDN (which would incorrectly resolve to cdn.jsdelivr.net/log).
       function flushLogs() {
-        if (!logQueue.length) return;
-        const batch = logQueue.splice(0, logQueue.length);
-        fetch('/log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(batch),
-          keepalive: true
-        }).catch(function () {});
+        logQueue.length = 0;
       }
       function queueLog(level, tag, msg) {
         const s = String(msg);
