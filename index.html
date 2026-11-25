@@ -1,12 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#08080a">
   <title>Grand Theft Auto III</title>
   <style>
-    * { box-sizing: border-box; }
     html, body {
       width: 100%;
       height: 100%;
@@ -22,45 +21,15 @@
       border: 0;
       background: #08080a;
     }
-    #fallback {
-      position: fixed;
-      inset: auto 12px 12px;
-      z-index: 5;
-      width: max-content;
-      max-width: calc(100% - 24px);
-      margin: auto;
-      padding: 9px 13px;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      background: rgba(15, 23, 42, .92);
-      color: #e2e8f0;
-      font: 13px system-ui, sans-serif;
-      text-decoration: none;
-    }
   </style>
 </head>
 <body>
-  <!--
-    The original GTA III page is loaded directly from jsDelivr.
-    This is intentional: its relative scripts, WASM, CSS, asset lists,
-    and gta3-assets/local files then resolve from the same CDN repository.
-  -->
   <iframe
     id="game"
-    title="Grand Theft Auto III"
-    src="https://cdn.jsdelivr.net/gh/watermelonsqueaks/open_gta_3@main/index.html"
+    src="https://cdn.jsdelivr.net/gh/watermelonsqueaks/open_gta_3@0c962403ee3ed1b1b83d2731c650e4a9e9f7cbad/index.html"
     allow="autoplay; fullscreen; gamepad; pointer-lock; accelerometer; gyroscope"
     allowfullscreen
-    referrerpolicy="no-referrer"
-  ></iframe>
-  <a id="fallback" href="https://cdn.jsdelivr.net/gh/watermelonsqueaks/open_gta_3@main/index.html" target="_blank" rel="noopener">If the game does not appear, open GTA III directly</a>
-  <script>
-    const frame = document.getElementById('game');
-    const fallback = document.getElementById('fallback');
-    frame.addEventListener('load', () => {
-      // Keep the direct-open link available as a recovery option.
-      fallback.style.display = 'block';
-    });
-  </script>
+    title="Grand Theft Auto III">
+  </iframe>
 </body>
 </html>
