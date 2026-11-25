@@ -812,6 +812,44 @@
   <script src="gamepad-emulator.js?v=139"></script>
   <script src="jsdos-cloud-sdk.js?v=139"></script>
   <script src="index.js?v=139"></script>
-  <script src="game.js?v=159"></script>
+  <script>
+  // Diagnostic build: load game.js from jsDelivr, but disable its raw-byte
+  // radar patch to test whether that patch is corrupting the WASM module.
+  (async function () {
+    const gameJsUrl = "https://cdn.jsdelivr.net/gh/watermelonsqueaks/open_gta_3@0c962403ee3ed1b1b83d2731c650e4a9e9f7cbad/game.js?v=159";
+    try {
+      const response = await fetch(gameJsUrl, { cache: "no-store" });
+      if (!response.ok) throw new Error("game.js HTTP " + response.status);
+      let source = await response.text();
+
+      const patchCall = "    patchRadarTopLeft(binary);";
+      if (!source.includes(patchCall)) {
+        throw new Error("Could not find patchRadarTopLeft call in game.js");
+      }
+      source = source.replace(
+        patchCall,
+        "    // Disabled for diagnostic test: preserve the original WASM bytes."
+      );
+
+      // Ensure boot still starts if this CDN fetch finishes after DOMContentLoaded.
+      const bootListener = "document.addEventListener('DOMContentLoaded', () => bootGame());";
+      if (source.includes(bootListener)) {
+        source = source.replace(
+          bootListener,
+          "if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', () => bootGame()); } else { bootGame(); }"
+        );
+      }
+
+      console.info("[GTA3 test] Loaded game.js from jsDelivr with radar byte patch disabled.");
+      const script = document.createElement("script");
+      script.textContent = source + "\n//# sourceURL=" + gameJsUrl;
+      document.body.appendChild(script);
+    } catch (error) {
+      console.error("[GTA3 test] Could not load diagnostic game.js:", error);
+      const status = document.getElementById("status");
+      if (status) status.textContent = "Diagnostic game.js load failed: " + error.message;
+    }
+  })();
+</script>
 </body>
 </html>
