@@ -59,7 +59,7 @@
           requestURL = new URL(isRequest ? input.url : String(input), window.location.href).pathname;
         } catch (_) {}
         // The static CDN has no logging endpoint. Silently discard log POSTs.
-        if (method === "POST" && /(^|\\/)log$/.test(requestURL)) {
+        if (method === "POST" && /(^|\/)log$/.test(requestURL)) {
           return Promise.resolve(new Response(null, { status: 204 }));
         }
         const target = cdnTarget(input, init);
