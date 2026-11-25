@@ -22,7 +22,19 @@
             return originalFetch(input, init);
           }
 
-          const path = url.pathname.replace(/^\\/+/, "");
+          let path = url.pathname.replace(/^\\/+/, "");
+          // Wasmer may serve the game below a nested path. Strip that prefix
+          // for repository-root files and preserve the complete GTA asset path.
+          const rootFiles = ["preload_files.list", "stream_files.list", "re3.wasm"];
+          const rootFile = rootFiles.find(name => path === name || path.endsWith("/" + name));
+          if (rootFile) {
+            path = rootFile;
+          } else {
+            const assetMarker = "gta3-assets/local/";
+            const assetIndex = path.indexOf(assetMarker);
+            if (assetIndex !== -1) path = path.slice(assetIndex);
+          }
+
           const target = new URL(path + url.search + url.hash, CDN_ROOT).href;
           if (input instanceof Request) {
             return originalFetch(new Request(target, input), init);
