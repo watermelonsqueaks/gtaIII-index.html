@@ -4,49 +4,64 @@
   <meta charset="utf-8">
   <base href="https://cdn.jsdelivr.net/gh/watermelonsqueaks/open_gta_3@0c962403ee3ed1b1b83d2731c650e4a9e9f7cbad/">
   <script>
-    (() => {
+    /*
+     * GTA III CDN routing:
+     * game.js builds preload/stream/asset URLs from window.location, so
+     * <base> alone cannot redirect those fetches. Route only the game's
+     * GET/HEAD file requests to this exact jsDelivr commit.
+     * POST requests (including /log) and unrelated requests are untouched.
+     */
+    (function () {
       const CDN_ROOT = "https://cdn.jsdelivr.net/gh/watermelonsqueaks/open_gta_3@0c962403ee3ed1b1b83d2731c650e4a9e9f7cbad/";
-      const originalFetch = window.fetch.bind(window);
+      const nativeFetch = window.fetch.bind(window);
+
+      function cdnTarget(input, init) {
+        const isRequest = input instanceof Request;
+        const request = isRequest ? input : null;
+        const method = String((init && init.method) || (request && request.method) || "GET").toUpperCase();
+        if (method !== "GET" && method !== "HEAD") return null;
+
+        let source;
+        try {
+          source = new URL(isRequest ? request.url : String(input), window.location.href);
+        } catch (_) {
+          return null;
+        }
+
+        // Do not rewrite third-party URLs or requests already on the CDN.
+        if (source.origin !== window.location.origin || source.hostname === "cdn.jsdelivr.net") return null;
+
+        const path = source.pathname;
+        let relative = null;
+
+        if (/(^|\/)preload_files\.list$/.test(path)) {
+          relative = "preload_files.list";
+        } else if (/(^|\/)stream_files\.list$/.test(path)) {
+          relative = "stream_files.list";
+        } else if (/(^|\/)re3\.wasm$/.test(path)) {
+          relative = "re3.wasm";
+        } else {
+          const assetMarker = "/gta3-assets/local/";
+          const at = path.indexOf(assetMarker);
+          if (at !== -1) relative = "gta3-assets/local/" + path.slice(at + assetMarker.length);
+          else if (path.startsWith("gta3-assets/local/")) relative = path;
+        }
+
+        if (!relative) return null;
+        return CDN_ROOT + relative + source.search + source.hash;
+      }
 
       window.fetch = function (input, init) {
-        try {
-          const method = String((init && init.method) ||
-            (input instanceof Request ? input.method : "GET")).toUpperCase();
-          if (method !== "GET" && method !== "HEAD") {
-            return originalFetch(input, init);
-          }
+        const target = cdnTarget(input, init);
+        if (!target) return nativeFetch(input, init);
 
-          const source = input instanceof Request ? input.url : String(input);
-          const url = new URL(source, window.location.href);
-          if (url.origin !== window.location.origin) {
-            return originalFetch(input, init);
-          }
-
-          let path = url.pathname.replace(/^\\/+/, "");
-          // Wasmer may serve the game below a nested path. Strip that prefix
-          // for repository-root files and preserve the complete GTA asset path.
-          const rootFiles = ["preload_files.list", "stream_files.list", "re3.wasm"];
-          const rootFile = rootFiles.find(name => path === name || path.endsWith("/" + name));
-          if (rootFile) {
-            path = rootFile;
-          } else {
-            const assetMarker = "gta3-assets/local/";
-            const assetIndex = path.indexOf(assetMarker);
-            if (assetIndex !== -1) path = path.slice(assetIndex);
-          }
-
-          const target = new URL(path + url.search + url.hash, CDN_ROOT).href;
-          if (input instanceof Request) {
-            return originalFetch(new Request(target, input), init);
-          }
-          return originalFetch(target, init);
-        } catch (err) {
-          return Promise.reject(err);
+        if (input instanceof Request) {
+          return nativeFetch(new Request(target, input), init);
         }
+        return nativeFetch(target, init);
       };
     })();
   </script>
-
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <title>GTA III</title>
@@ -55,7 +70,16 @@
     (function () {
       const logQueue = [];
       let flushTimer = null;
-      function flushLogs() { return; }
+      function flushLogs() {
+        if (!logQueue.length) return;
+        const batch = logQueue.splice(0, logQueue.length);
+        fetch('/log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(batch),
+          keepalive: true
+        }).catch(function () {});
+      }
       function queueLog(level, tag, msg) {
         const s = String(msg);
         // Avoid flooding HTTP sockets on high-frequency intermediate chunk progress
